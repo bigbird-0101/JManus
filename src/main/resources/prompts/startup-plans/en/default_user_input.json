@@ -1,5 +1,5 @@
 {
-  "title": "Default User Input Processing(don't delete this plan)",
+  "title": "default_user_input_processing(do not delete this plan)",
   "steps": [
     {
       "stepRequirement": "<<userRequirement>>",

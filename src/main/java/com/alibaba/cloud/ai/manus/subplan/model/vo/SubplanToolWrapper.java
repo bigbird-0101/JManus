@@ -90,7 +90,12 @@ public class SubplanToolWrapper extends AbstractBaseTool<Map<String, Object>> {
 	@Override
 	public String getParameters() {
 		// This will be handled by the service layer
-		return "{}";
+    return """
+                 {
+                    "type":"object",
+                    "properties":{}
+                 }
+                """;
 	}
 
 	@Override

@@ -103,6 +103,7 @@ public class PptGeneratorOperator extends AbstractBaseTool<PptInput> {
 	public String getParameters() {
 		return """
 				{
+				    "type": "object",
 				    "oneOf": [
 				        {
 				            "type": "object",

@@ -49,9 +49,11 @@ import java.util.Optional;
 @Transactional
 public class SubplanToolService {
 
-	private static final Logger logger = LoggerFactory.getLogger(SubplanToolService.class);
+  private static final Logger logger = LoggerFactory.getLogger(SubplanToolService.class);
+  public static final String LEFT = "(";
+  public static final String RIGHT = ")";
 
-	@Autowired
+  @Autowired
 	private SubplanToolDefRepository subplanToolDefRepository;
 
 	@Autowired
@@ -157,6 +159,12 @@ public class SubplanToolService {
 	public SubplanToolDef registerSubplanTool(SubplanToolDef toolDef) {
 		logger.info("Registering new subplan tool: {}", toolDef.getToolName());
 
+    if(toolDef.getToolName().contains(LEFT) || toolDef.getToolName().contains(RIGHT)){
+      toolDef.setToolName(toolDef.getToolName().replace(LEFT, "_"));
+      toolDef.setToolName(toolDef.getToolName().replace(RIGHT, "_"));
+      toolDef.setToolName(toolDef.getToolName().replace(" ", "_"));
+    }
+
 		if (subplanToolDefRepository.existsByToolName(toolDef.getToolName())) {
 			throw new IllegalArgumentException("Subplan tool with name '" + toolDef.getToolName() + "' already exists");
 		}
@@ -210,7 +218,13 @@ public class SubplanToolService {
 	private String convertParametersToSchema(SubplanToolDef subplanTool) {
 		try {
 			if (subplanTool.getInputSchema() == null || subplanTool.getInputSchema().isEmpty()) {
-				return "{}";
+        return """
+                  {
+                    "type":"object",
+                    "properties":{
+                    }
+                  }
+                  """;
 			}
 
 			// Convert List<SubplanParamDef> to JSON schema format

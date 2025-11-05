@@ -32,7 +32,7 @@ public class DynamicModelEntity {
 	@Column(nullable = false)
 	private String baseUrl;
 
-	@Column(nullable = false)
+	@Column(nullable = false,length = 2048)
 	private String apiKey;
 
 	@Convert(converter = MapToStringConverter.class)

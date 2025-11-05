@@ -67,7 +67,7 @@ public class PlanTemplateInitializationService {
 	 * @param namespace Namespace
 	 */
 	public void initializePlanTemplatesForNamespace(String namespace) {
-		String defaultLanguage = "en";
+		String defaultLanguage = "zh";
 		initializePlanTemplatesForNamespaceWithLanguage(namespace, defaultLanguage);
 	}
 

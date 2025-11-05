@@ -1,5 +1,5 @@
 {
-  "title": "默认的用户输入(不要删除这个计划)",
+  "title": "default_user_input(do not delete this plan)",
   "steps": [
     {
       "stepRequirement": "<<userRequirement>>",
