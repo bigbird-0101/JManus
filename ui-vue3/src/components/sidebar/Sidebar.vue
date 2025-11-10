@@ -47,15 +47,49 @@
 
       <!-- List Tab Content -->
       <div v-if="sidebarStore.currentTab === 'list'" class="tab-content">
-        <div class="new-task-section">
+        <div class="organization-section">
           <button
             class="new-task-btn"
             @click="() => sidebarStore.createNewTemplate(sidebarStore.planType)"
           >
             <Icon icon="carbon:add" width="16" />
             {{ $t('sidebar.newPlan') }}
-            <span class="shortcut">⌘ K</span>
           </button>
+          <div class="organization-row">
+            <div class="organization-selector">
+              <label class="organization-label">{{ $t('sidebar.organizationLabel') }}</label>
+              <select
+                :value="sidebarStore.organizationMethod"
+                @change="handleOrganizationChange"
+                class="organization-select"
+              >
+                <option value="by_time">{{ $t('sidebar.organizationByTime') }}</option>
+                <option value="by_abc">{{ $t('sidebar.organizationByAbc') }}</option>
+                <option value="by_group_time">{{ $t('sidebar.organizationByGroupTime') }}</option>
+                <option value="by_group_abc">{{ $t('sidebar.organizationByGroupAbc') }}</option>
+              </select>
+            </div>
+            <div class="search-input-wrapper">
+              <label class="search-label">{{ $t('sidebar.searchLabel') }}</label>
+              <div class="search-input-container">
+                <Icon icon="carbon:search" width="16" class="search-icon" />
+                <input
+                  v-model="searchKeyword"
+                  type="text"
+                  class="search-input"
+                  :placeholder="$t('sidebar.searchPlaceholder') || 'Search...'"
+                />
+                <button
+                  v-if="searchKeyword"
+                  class="search-clear-btn"
+                  @click="searchKeyword = ''"
+                  :title="$t('sidebar.clearSearch') || 'Clear search'"
+                >
+                  <Icon icon="carbon:close" width="14" />
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div class="sidebar-content-list">
@@ -80,44 +114,107 @@
             <span>{{ $t('sidebar.noTemplates') }}</span>
           </div>
 
-          <!-- Plan template list -->
-          <div
-            v-else
-            v-for="template in sidebarStore.sortedTemplates"
-            :key="template.id"
-            class="sidebar-content-list-item"
-            :class="{
-              'sidebar-content-list-item-active':
-                template.id === sidebarStore.currentPlanTemplateId,
-            }"
-            @click="sidebarStore.selectTemplate(template)"
-          >
-            <div class="task-icon">
-              <Icon icon="carbon:document" width="20" />
-            </div>
-            <div class="task-details">
-              <div class="task-title">{{ template.title || $t('sidebar.unnamedPlan') }}</div>
-              <div class="task-preview">
-                {{ getTaskPreviewText(template) }}
-              </div>
-            </div>
-            <div class="task-time">
-              {{
-                getRelativeTimeString(
-                  sidebarStore.parseDateTime(template.updateTime || template.createTime)
-                )
-              }}
-            </div>
-            <div class="task-actions">
-              <button
-                class="delete-task-btn"
-                :title="$t('sidebar.deleteTemplate')"
-                @click.stop="sidebarStore.deleteTemplate(template)"
+          <!-- Plan template list (grouped or ungrouped) -->
+          <template v-else>
+            <template
+              v-for="[groupName, templates] in filteredGroupedTemplates"
+              :key="groupName || 'ungrouped'"
+            >
+              <!-- Group header (only show for grouped methods) -->
+              <div
+                v-if="
+                  (sidebarStore.organizationMethod === 'by_group_time' ||
+                    sidebarStore.organizationMethod === 'by_group_abc') &&
+                  templates.length > 0
+                "
+                class="group-header"
+                @click="sidebarStore.toggleGroupCollapse(groupName)"
+                :title="
+                  sidebarStore.isGroupCollapsed(groupName)
+                    ? $t('sidebar.expandGroup')
+                    : $t('sidebar.collapseGroup')
+                "
               >
-                <Icon icon="carbon:close" width="16" />
-              </button>
-            </div>
-          </div>
+                <button
+                  class="group-toggle-btn"
+                  @click.stop="sidebarStore.toggleGroupCollapse(groupName)"
+                  :title="
+                    sidebarStore.isGroupCollapsed(groupName)
+                      ? $t('sidebar.expandGroup')
+                      : $t('sidebar.collapseGroup')
+                  "
+                >
+                  <Icon
+                    :icon="
+                      sidebarStore.isGroupCollapsed(groupName)
+                        ? 'carbon:chevron-right'
+                        : 'carbon:chevron-down'
+                    "
+                    width="14"
+                  />
+                </button>
+                <Icon icon="carbon:folder" width="16" />
+                <span class="group-name">
+                  {{
+                    groupName === null || groupName === ''
+                      ? $t('sidebar.ungroupedMethods')
+                      : groupName
+                  }}
+                </span>
+                <span class="group-count">({{ templates.length }})</span>
+              </div>
+              <!-- Template items (hidden when group is collapsed) -->
+              <template
+                v-if="
+                  !(
+                    (sidebarStore.organizationMethod === 'by_group_time' ||
+                      sidebarStore.organizationMethod === 'by_group_abc') &&
+                    sidebarStore.isGroupCollapsed(groupName)
+                  )
+                "
+              >
+                <div
+                  v-for="template in templates"
+                  :key="template.id"
+                  class="sidebar-content-list-item"
+                  :class="{
+                    'sidebar-content-list-item-active':
+                      template.id === sidebarStore.currentPlanTemplateId,
+                    'grouped-item':
+                      sidebarStore.organizationMethod === 'by_group_time' ||
+                      sidebarStore.organizationMethod === 'by_group_abc',
+                  }"
+                  @click="sidebarStore.selectTemplate(template)"
+                >
+                  <div class="task-icon">
+                    <Icon icon="carbon:document" width="20" />
+                  </div>
+                  <div class="task-details">
+                    <div class="task-title">{{ template.title || $t('sidebar.unnamedPlan') }}</div>
+                    <div class="task-preview">
+                      {{ getTaskPreviewText(template) }}
+                    </div>
+                  </div>
+                  <div class="task-time">
+                    {{
+                      getRelativeTimeString(
+                        sidebarStore.parseDateTime(template.updateTime || template.createTime)
+                      )
+                    }}
+                  </div>
+                  <div class="task-actions">
+                    <button
+                      class="delete-task-btn"
+                      :title="$t('sidebar.deleteTemplate')"
+                      @click.stop="sidebarStore.deleteTemplate(template)"
+                    >
+                      <Icon icon="carbon:close" width="16" />
+                    </button>
+                  </div>
+                </div>
+              </template>
+            </template>
+          </template>
         </div>
       </div>
 
@@ -181,6 +278,7 @@
             @publish-mcp-service="handlePublishMcpService"
             @clear-params="handleClearExecutionParams"
             @update-execution-params="handleUpdateExecutionParams"
+            @save-before-execute="handleSaveBeforeExecute"
           />
         </div>
       </div>
@@ -245,6 +343,11 @@
 </template>
 
 <script setup lang="ts">
+// Define component name to satisfy Vue linting rules
+defineOptions({
+  name: 'SidebarPanel',
+})
+
 import type { CoordinatorToolConfig, CoordinatorToolVO } from '@/api/coordinator-tool-api-service'
 import { CoordinatorToolApiService } from '@/api/coordinator-tool-api-service'
 import PublishServiceModal from '@/components/publish-service-modal/PublishServiceModal.vue'
@@ -261,6 +364,9 @@ import JsonEditorV2 from './JsonEditorV2.vue'
 
 const { t } = useI18n()
 const toast = useToast()
+
+// Search functionality
+const searchKeyword = ref('')
 
 // Sidebar width management
 const sidebarWidth = ref(80) // Default width percentage
@@ -284,7 +390,7 @@ const currentToolInfo = ref<CoordinatorToolVO>({
 })
 
 // Store tool information for all templates
-const templateToolInfo = ref<Record<string, CoordinatorToolVO>>({})
+const templateToolInfo = ref<Partial<Record<string, CoordinatorToolVO>>>({})
 const publishMcpModalRef = ref<InstanceType<typeof PublishServiceModal> | null>(null)
 
 // CoordinatorTool configuration
@@ -342,29 +448,42 @@ const handleSaveTemplate = async () => {
   try {
     const saveResult = await sidebarStore.saveTemplate()
 
-    if (saveResult?.duplicate) {
+    const result = saveResult as {
+      duplicate?: boolean
+      saved?: boolean
+      message?: string
+      versionCount?: number
+    }
+    if (result?.duplicate) {
       toast.success(
         t('sidebar.saveCompleted', {
-          message: saveResult.message,
-          versionCount: saveResult.versionCount,
+          message: result.message,
+          versionCount: result.versionCount,
         })
       )
-    } else if (saveResult?.saved) {
+    } else if (result?.saved) {
       toast.success(
         t('sidebar.saveSuccess', {
-          message: saveResult.message,
-          versionCount: saveResult.versionCount,
+          message: result.message,
+          versionCount: result.versionCount,
         })
       )
       // Refresh parameter requirements after successful save
       refreshParameterRequirements()
-    } else if (saveResult?.message) {
-      toast.success(t('sidebar.saveStatus', { message: saveResult.message }))
+    } else if (result?.message) {
+      toast.success(t('sidebar.saveStatus', { message: result.message }))
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Failed to save plan modifications:', error)
-    toast.error(error.message || t('sidebar.saveFailed'))
+    const message = error instanceof Error ? error.message : t('sidebar.saveFailed')
+    toast.error(message)
+    throw error // Re-throw to allow caller to handle
   }
+}
+
+const handleSaveBeforeExecute = async () => {
+  console.log('[Sidebar] 💾 Save before execute requested')
+  await handleSaveTemplate()
 }
 
 // Method to refresh parameter requirements
@@ -486,9 +605,10 @@ const handleExecutePlan = async (payload: PlanExecutionRequestPayload) => {
     emit('planExecutionRequested', finalPayload)
 
     console.log('[Sidebar] ✅ Event emitted successfully')
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[Sidebar] ❌ Error executing plan:', error)
-    toast.error(t('sidebar.executeFailed') + ': ' + error.message)
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    toast.error(t('sidebar.executeFailed') + ': ' + message)
   } finally {
     console.log('[Sidebar] 🧹 Cleaning up after execution')
     sidebarStore.finishPlanExecution()
@@ -613,16 +733,18 @@ const confirmCopyPlan = async () => {
     const { PlanActApiService } = await import('@/api/plan-act-api-service')
     const result = await PlanActApiService.savePlanTemplate('', JSON.stringify(newPlan))
 
-    if (result.saved) {
+    const typedResult = result as { saved?: boolean; message?: string }
+    if (typedResult.saved) {
       toast.success(t('sidebar.copyPlanSuccess', { title: newPlanTitle.value.trim() }))
       await sidebarStore.loadPlanTemplateList()
       closeCopyPlanModal()
     } else {
-      toast.error(t('sidebar.copyPlanFailed', { message: result.message || 'Unknown error' }))
+      toast.error(t('sidebar.copyPlanFailed', { message: typedResult.message || 'Unknown error' }))
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[Sidebar] Error copying plan:', error)
-    toast.error(t('sidebar.copyPlanFailed', { message: error.message || 'Unknown error' }))
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    toast.error(t('sidebar.copyPlanFailed', { message: message }))
   } finally {
     isCopyingPlan.value = false
   }
@@ -645,7 +767,7 @@ const loadToolInfo = async (planTemplateId: string | null) => {
   }
 
   try {
-    const toolData = await CoordinatorToolApiService.getCoordinatorToolsByTemplate(planTemplateId)
+    const toolData = await CoordinatorToolApiService.getCoordinatorToolByTemplate(planTemplateId)
     if (toolData) {
       currentToolInfo.value = {
         ...toolData,
@@ -680,6 +802,14 @@ const loadToolInfo = async (planTemplateId: string | null) => {
   }
 }
 
+// Handle organization method change
+const handleOrganizationChange = (event: Event) => {
+  const target = event.target as HTMLSelectElement
+  sidebarStore.setOrganizationMethod(
+    target.value as 'by_time' | 'by_abc' | 'by_group_time' | 'by_group_abc'
+  )
+}
+
 // Utility functions
 const getRelativeTimeString = (date: Date): string => {
   // Check if date is valid
@@ -705,17 +835,83 @@ const getRelativeTimeString = (date: Date): string => {
 // Get task preview text - show tool name if published, otherwise empty
 const getTaskPreviewText = (template: PlanTemplate): string => {
   const toolInfo = templateToolInfo.value[template.id]
-  if (toolInfo?.toolName) {
-    return `${t('sidebar.publishedTool')}: ${toolInfo.toolName}`
+  if (!toolInfo) {
+    return '' // Return empty string when no tools are published
   }
-  return '' // Return empty string when no tools are published
+  return `${t('sidebar.publishedTool')}: ${toolInfo.toolName}`
 }
+
+// Filter templates based on search keyword
+const filteredGroupedTemplates = computed(() => {
+  const keyword = searchKeyword.value.trim().toLowerCase()
+  if (!keyword) {
+    return sidebarStore.groupedTemplates
+  }
+
+  const filtered = new Map<string | null, PlanTemplate[]>()
+
+  // Iterate through all groups
+  for (const [groupName, templates] of sidebarStore.groupedTemplates) {
+    const matchingTemplates: PlanTemplate[] = []
+
+    for (const template of templates) {
+      // Search in title
+      const title = (template.title || '').toLowerCase()
+      // Search in task preview
+      const preview = getTaskPreviewText(template).toLowerCase()
+
+      if (title.includes(keyword) || preview.includes(keyword)) {
+        matchingTemplates.push(template)
+      }
+    }
+
+    // Only add groups that have matching templates
+    if (matchingTemplates.length > 0) {
+      filtered.set(groupName, matchingTemplates)
+    }
+  }
+
+  return filtered
+})
+
+// Auto-expand groups that contain matching items when searching
+watch(searchKeyword, newKeyword => {
+  const keyword = newKeyword.trim().toLowerCase()
+  if (!keyword) {
+    return
+  }
+
+  // Only auto-expand for grouped organization methods
+  if (
+    sidebarStore.organizationMethod !== 'by_group_time' &&
+    sidebarStore.organizationMethod !== 'by_group_abc'
+  ) {
+    return
+  }
+
+  // Expand groups that contain matches
+  for (const [groupName, templates] of sidebarStore.groupedTemplates) {
+    let hasMatch = false
+    for (const template of templates) {
+      const title = (template.title || '').toLowerCase()
+      const preview = getTaskPreviewText(template).toLowerCase()
+      if (title.includes(keyword) || preview.includes(keyword)) {
+        hasMatch = true
+        break
+      }
+    }
+
+    if (hasMatch && sidebarStore.isGroupCollapsed(groupName)) {
+      sidebarStore.toggleGroupCollapse(groupName)
+    }
+  }
+})
 
 // Load tool information for all templates
 const loadAllTemplateToolInfo = async () => {
   for (const template of sidebarStore.planTemplateList) {
     try {
-      const toolData = await CoordinatorToolApiService.getCoordinatorToolsByTemplate(template.id)
+      const toolData = await CoordinatorToolApiService.getCoordinatorToolByTemplate(template.id)
       if (toolData?.toolName) {
         templateToolInfo.value[template.id] = toolData
       }
@@ -1003,18 +1199,157 @@ defineExpose({
   }
 }
 
-.new-task-section {
+.organization-section {
   margin-bottom: 16px;
   padding-right: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  .organization-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .organization-selector {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    .organization-label {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.7);
+      white-space: nowrap;
+      margin: 0;
+      padding: 0;
+      line-height: 1;
+    }
+
+    .organization-select {
+      width: 20ch;
+      max-width: 20ch;
+      padding: 6px 10px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      color: white;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.2);
+      }
+
+      &:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+      }
+
+      option {
+        background: #1a1a1a;
+        color: white;
+        white-space: normal;
+      }
+    }
+  }
+
+  .search-input-wrapper {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+
+    .search-label {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.7);
+      white-space: nowrap;
+      margin: 0;
+      padding: 0;
+      line-height: 1;
+    }
+
+    .search-input-container {
+      flex: 1;
+      position: relative;
+      display: flex;
+      align-items: center;
+      min-width: 0;
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 10px;
+      color: rgba(255, 255, 255, 0.5);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 6px 10px 6px 32px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      color: white;
+      font-size: 12px;
+      transition: all 0.2s ease;
+
+      &::placeholder {
+        color: rgba(255, 255, 255, 0.4);
+      }
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.2);
+      }
+
+      &:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+      }
+    }
+
+    .search-clear-btn {
+      position: absolute;
+      right: 6px;
+      width: 20px;
+      height: 20px;
+      background: transparent;
+      border: none;
+      border-radius: 4px;
+      color: rgba(255, 255, 255, 0.5);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      z-index: 1;
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
+      }
+    }
+  }
 
   .new-task-btn {
     width: 100%;
-    padding: 12px 16px;
+    padding: 10px 16px;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     border: none;
-    border-radius: 8px;
+    border-radius: 6px;
     color: white;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
     cursor: pointer;
     display: flex;
@@ -1022,16 +1357,11 @@ defineExpose({
     justify-content: center;
     gap: 8px;
     transition: all 0.2s ease;
+    white-space: nowrap;
 
     &:hover {
       transform: translateY(-1px);
       box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-    }
-
-    .shortcut {
-      font-size: 12px;
-      opacity: 0.8;
-      margin-left: auto;
     }
   }
 }
@@ -1076,6 +1406,67 @@ defineExpose({
     }
   }
 
+  .group-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    margin-top: 12px;
+    margin-bottom: 6px;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 13px;
+    font-weight: 600;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.2s ease;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    &:first-child {
+      margin-top: 0;
+    }
+
+    .group-toggle-btn {
+      width: 20px;
+      height: 20px;
+      background: transparent;
+      border: none;
+      border-radius: 4px;
+      color: rgba(255, 255, 255, 0.7);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      flex-shrink: 0;
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
+      }
+
+      &:active {
+        transform: scale(0.95);
+      }
+    }
+
+    .group-name {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .group-count {
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.5);
+      flex-shrink: 0;
+    }
+  }
+
   .sidebar-content-list-item {
     display: flex;
     align-items: flex-start;
@@ -1087,6 +1478,11 @@ defineExpose({
     cursor: pointer;
     transition: all 0.2s ease;
     position: relative;
+
+    &.grouped-item {
+      margin-left: 16px;
+      border-left: 2px solid rgba(102, 126, 234, 0.3);
+    }
 
     &:hover {
       background: rgba(255, 255, 255, 0.1);

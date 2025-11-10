@@ -122,7 +122,7 @@ public class TableProcessorTool extends AbstractBaseTool<TableProcessorTool.Tabl
 
 	private final String PARAMETERS = """
 			{
-			 "type": "object",
+			  "type": "object",
 			  "oneOf": [
 				{
 				  "type": "object",

@@ -159,12 +159,6 @@ public class SubplanToolService {
 	public SubplanToolDef registerSubplanTool(SubplanToolDef toolDef) {
 		logger.info("Registering new subplan tool: {}", toolDef.getToolName());
 
-    if(toolDef.getToolName().contains(LEFT) || toolDef.getToolName().contains(RIGHT)){
-      toolDef.setToolName(toolDef.getToolName().replace(LEFT, "_"));
-      toolDef.setToolName(toolDef.getToolName().replace(RIGHT, "_"));
-      toolDef.setToolName(toolDef.getToolName().replace(" ", "_"));
-    }
-
 		if (subplanToolDefRepository.existsByToolName(toolDef.getToolName())) {
 			throw new IllegalArgumentException("Subplan tool with name '" + toolDef.getToolName() + "' already exists");
 		}
@@ -218,13 +212,7 @@ public class SubplanToolService {
 	private String convertParametersToSchema(SubplanToolDef subplanTool) {
 		try {
 			if (subplanTool.getInputSchema() == null || subplanTool.getInputSchema().isEmpty()) {
-        return """
-                  {
-                    "type":"object",
-                    "properties":{
-                    }
-                  }
-                  """;
+				return "{\"type\":\"object\",\"properties\":{},\"additionalProperties\":false}";
 			}
 
 			// Convert List<SubplanParamDef> to JSON schema format
@@ -256,7 +244,7 @@ public class SubplanToolService {
 		}
 		catch (Exception e) {
 			logger.error("Error converting parameters to schema for tool: {}", subplanTool.getToolName(), e);
-			return "{}";
+			return "{\"type\":\"object\",\"properties\":{},\"additionalProperties\":false}";
 		}
 	}
 

@@ -75,7 +75,7 @@ public class DatabaseReadTool extends AbstractBaseTool<DatabaseRequest> {
 	public String getParameters() {
 		return """
 				{
-						"type": "object",
+				    "type": "object",
 				    "oneOf": [
 				        {
 				            "type": "object",
